@@ -106,48 +106,101 @@ void demo1()
     system(("open " + filename).c_str()); // Open the file in the default browser
 }
 
-void demo2()
+void demo2(Layout::Origin origin = Layout::BottomLeft)
 {
-    const std::string filename = "my.svg";
+    std::string originName;
+    switch (origin)
+    {
+    case Layout::TopLeft:
+        originName = "TopLeft";
+        break;
+    case Layout::TopRight:
+        originName = "TopRight";
+        break;
+    case Layout::BottomLeft:
+        originName = "BottomLeft";
+        break;
+    case Layout::BottomRight:
+        originName = "BottomRight";
+        break;
+    }
+
+    const std::string filename = "my_" + originName + ".svg";
+
     Dimensions dimensions(400, 400);
 
-    // Use TopLeft layout so that (0, 0) is the top left corner of the SVG
-    // but specify coordinates in user space (origin at bottom left, +y axis upwards)
-    Document doc(filename, Layout(dimensions, Layout::TopLeft));
+    // Create a Document object with the specified layout
+    Document doc(filename, Layout(dimensions, origin));
 
-    Rectangle rect1(Point(0, 0), 100, 100, Fill(), Stroke(1.0, Color(Color::Blue)));
-    doc << rect1;
-
-    Rectangle rect2(Point(100, 100), 100, 100, Fill(), Stroke(1.0, Color(Color::Red)));
-    doc << rect2;
-
+    // Blue document border
     {
-        Text text(Point(0, 0), "Hello world!", Fill(Color::Black), Font(10, "Verdana"), Stroke(), 90);
-        doc << text;
-        text.setRotation(45);
-        doc << text;
-    }
-    {
-        Text text(Point(100, 100), "Hello world!", Fill(Color::Black), Font(10, "Verdana"), Stroke(), 90);
-        doc << text;
-        text.setRotation(45);
-        doc << text;
+        Polygon docBorder(Stroke(1, Color(Color::Blue)));
+        docBorder << Point(0, 0) << Point(dimensions.width, 0)
+                  << Point(dimensions.width, dimensions.height) << Point(0, dimensions.height);
+        doc << docBorder;
     }
 
-    Group myGroup(Point(0, 0) , Fill(Color::Red), Stroke(2, Color(Color::Black)));
-    myGroup << Circle(Point(0, 0), 50, Fill(Color::Transparent))
-            << Rectangle(Point(100, 100), 100, 50, Fill(Color::Transparent));
+    // Circle at the origin
+    {
+        doc << Circle(Point(0, 0), 50, Fill(Color::Green));
+    }
+    // Circles in the corners
+    {
+        doc << Circle(Point(25, 25), 50, Fill(Color::Transparent), Stroke(2.0, Color(Color::Red)));
+        doc << Circle(Point(375, 375), 50, Fill(Color::Red));
+    }
 
-    Text text(Point(100, 100), "Hello group!", Fill(Color::Black), Font(10, "Verdana"), Stroke(), 0);
-    myGroup << text;
+    // Rectangle in the center, should go up and right BUT GOES DOWN and right
+    {
+        doc << Rectangle(Point(200, 200), 50, 100, Fill(), Stroke(2.0, Color(Color::Red)));
+    }
 
-    text.setRotation(-45);
-    myGroup << text;
+    // // Rectangle in the center, should go up and right
+    // {
+    //     Point start(200, 200);
+    //     double width = 50;
+    //     double height = 100;
 
-    text.setRotation(-90);
-    myGroup << text;
+    //     std::cout << "Original coordinates: (" << start.x << ", " << start.y << ")" << std::endl;
+    //     std::cout << "Translated coordinates: ("
+    //               << translateX(start.x, layout) << ", "
+    //               << translateY(start.y, layout) << ")" << std::endl;
+    //     std::cout << "Translated width: " << translateWidth(width, layout) << std::endl;
+    //     std::cout << "Translated height: " << translateHeight(height, layout) << std::endl;
 
-    doc << myGroup;
+    //     doc << Rectangle(start, width, height, Fill(), Stroke(2.0, Color(Color::Red)));
+    // }
+
+    //
+    // doc << rect2;
+
+    // {
+    //     Text text(Point(0, 0), "Hello world!", Fill(Color::Black), Font(10, "Verdana"), Stroke(), 90);
+    //     doc << text;
+    //     text.setRotation(45);
+    //     doc << text;
+    // }
+    // {
+    //     Text text(Point(100, 100), "Hello world!", Fill(Color::Black), Font(10, "Verdana"), Stroke(), 90);
+    //     doc << text;
+    //     text.setRotation(45);
+    //     doc << text;
+    // }
+
+    // Group myGroup(Point(0, 0) , Fill(Color::Red), Stroke(2, Color(Color::Black)));
+    // myGroup<< Circle(Point(0, 0), 50, Fill(Color::Transparent))
+    //         << Rectangle(Point(100, 100), 100, 50, Fill(Color::Transparent));
+
+    // Text text(Point(100, 100), "Hello group!", Fill(Color::Black), Font(10, "Verdana"), Stroke(), 0);
+    // myGroup << text;
+
+    // text.setRotation(-45);
+    // myGroup << text;
+
+    // text.setRotation(-90);
+    // myGroup << text;
+
+    // doc << myGroup;
 
     doc.save();
 
@@ -159,7 +212,11 @@ void demo2()
 int main() // Example usage of the Simple SVG library.
 {
     // demo1();
-    demo2();
+    demo2(Layout::BottomLeft);
+    demo2(Layout::TopLeft);
+    demo2(Layout::BottomRight);
+    demo2(Layout::TopRight);
+
 
     return 0;
 }
