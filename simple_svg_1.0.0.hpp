@@ -891,27 +891,6 @@ namespace svg
         [[maybe_unused]] double scale;
         std::vector<Polyline> polylines;
 
-        // optional<Dimensions> getDimensions() const
-        // {
-        //     if (polylines.empty())
-        //         return optional<Dimensions>();
-
-        //     optional<Point> min = getMinPoint(polylines[0].points);
-        //     optional<Point> max = getMaxPoint(polylines[0].points);
-        //     for (unsigned i = 0; i < polylines.size(); ++i)
-        //     {
-        //         if (getMinPoint(polylines[i].points)->x < min->x)
-        //             min->x = getMinPoint(polylines[i].points)->x;
-        //         if (getMinPoint(polylines[i].points)->y < min->y)
-        //             min->y = getMinPoint(polylines[i].points)->y;
-        //         if (getMaxPoint(polylines[i].points)->x > max->x)
-        //             max->x = getMaxPoint(polylines[i].points)->x;
-        //         if (getMaxPoint(polylines[i].points)->y > max->y)
-        //             max->y = getMaxPoint(polylines[i].points)->y;
-        //     }
-
-        //     return optional<Dimensions>(Dimensions(max->x - min->x, max->y - min->y));
-        // }
         std::optional<Dimensions> getDimensions() const
         {
             if (polylines.empty())
@@ -961,93 +940,94 @@ namespace svg
         }
     };
 
+class Group : public Shape
+{
+public:
+    explicit Group(Point const &origin = Point(), Fill const &fill = Fill(), Stroke const &stroke = Stroke())
+        : Shape(fill, stroke), origin(origin) {}
 
-    class Group : public Shape
+    Group(const Group&) = delete;
+    Group& operator=(const Group&) = delete;
+
+    Group(Group&& other) noexcept
+        : Shape(std::move(other)), shapes(std::move(other.shapes)), origin(std::move(other.origin)) {}
+
+    Group& operator=(Group&& other) noexcept
     {
-    public:
-        explicit Group(Fill const &fill = Fill(), Stroke const &stroke = Stroke())
-            : Shape(fill, stroke) {}
-
-        Group(const Group&) = delete;
-        Group& operator=(const Group&) = delete;
-
-        Group(Group&& other) noexcept
-            : Shape(std::move(other)), shapes(std::move(other.shapes)) {}
-
-        Group& operator=(Group&& other) noexcept
+        if (this != &other)
         {
-            if (this != &other)
-            {
-                Shape::operator=(std::move(other));
-                shapes = std::move(other.shapes);
-            }
-            return *this;
+            Shape::operator=(std::move(other));
+            shapes = std::move(other.shapes);
+            origin = std::move(other.origin);
+        }
+        return *this;
+    }
+
+    Group &operator<<(Shape const &shape)
+    {
+        shapes.push_back(shape.clone());
+        return *this;
+    }
+
+    std::string toString(Layout const &layout) const override
+    {
+        std::stringstream ss;
+        ss << elemStart("g");
+        ss << fill.toString(layout) << stroke.toString(layout);
+        ss << attribute("transform", "translate(" +
+            std::to_string(translateX(origin.x, layout)) + "," +
+            std::to_string(translateY(origin.y, layout)) + ")");
+        ss << ">\n";
+
+        for (const auto &shape : shapes)
+        {
+            ss << shape->toString(layout);
         }
 
-        Group &operator<<(Shape const &shape)
-        {
-            shapes.push_back(shape.clone());
-            return *this;
+        ss << elemEnd("g");
+        return ss.str();
+    }
+
+    void offset(Point const &offset) override
+    {
+        origin.x += offset.x;
+        origin.y += offset.y;
+    }
+
+    Point getRotationCenter() const override
+    {
+        if (shapes.empty()) {
+            return origin;
         }
 
-        std::string toString(Layout const &layout) const override
-        {
-            std::stringstream ss;
-            ss << elemStart("g");
-            ss << fill.toString(layout) << stroke.toString(layout);
-            ss << ">\n";
+        double total_x = 0.0;
+        double total_y = 0.0;
+        int count = 0;
 
-            for (const auto &shape : shapes)
-            {
-                ss << shape->toString(layout); // << "\n"; // No need for new line if the shape provides one
-            }
-
-            ss << elemEnd("g");
-            return ss.str();
+        for (const auto& shape : shapes) {
+            Point center = shape->getRotationCenter();
+            total_x += center.x;
+            total_y += center.y;
+            ++count;
         }
 
-        void offset(Point const &offset) override
+        return Point(origin.x + total_x / count, origin.y + total_y / count);
+    }
+
+    std::unique_ptr<Shape> clone() const override
+    {
+        auto new_group = std::make_unique<Group>(origin, fill, stroke);
+        for (const auto& shape : shapes)
         {
-            for (auto &shape : shapes)
-            {
-                shape->offset(offset);
-            }
+            new_group->shapes.push_back(shape->clone());
         }
+        return new_group;
+    }
 
-        Point getRotationCenter() const override
-        {
-            if (shapes.empty()) {
-                return Point();
-            }
-
-            double total_x = 0.0;
-            double total_y = 0.0;
-            int count = 0;
-
-            for (const auto& shape : shapes) {
-                Point center = shape->getRotationCenter();
-                total_x += center.x;
-                total_y += center.y;
-                ++count;
-            }
-
-            return Point(total_x / count, total_y / count);
-        }
-
-        std::unique_ptr<Shape> clone() const override
-        {
-            auto new_group = std::make_unique<Group>(fill, stroke);
-            for (const auto& shape : shapes)
-            {
-                new_group->shapes.push_back(shape->clone());
-            }
-            return new_group;
-        }
-
-    private:
-        std::vector<std::unique_ptr<Shape>> shapes;
-    };
-
+private:
+    std::vector<std::unique_ptr<Shape>> shapes;
+    Point origin;
+};
     class Document
     {
     public:
